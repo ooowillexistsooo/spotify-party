@@ -20,9 +20,9 @@ You need a **Spotify Premium** account; Spotify requires it for the owner of a d
 3. Open the app's **Settings** and copy the **Client ID**. Click **View client secret** and copy the **Client secret**.
 4. Open **User Management** and add the name and email of each Spotify account that will *host* parties (up to 5). Guests don't need to be added.
 
-## 2. Run it
+## 2. Run it locally
 
-Requires Node.js 22.13 or newer.
+Requires Node.js 22.13 or newer and a Postgres database (any Postgres works, including a free [Neon](https://neon.com) database).
 
 ```sh
 cp .env.example .env   # then fill in the values
@@ -34,12 +34,18 @@ npm start
 | --- | --- |
 | `SPOTIFY_CLIENT_ID` | Client ID from step 1 |
 | `SPOTIFY_CLIENT_SECRET` | Client secret from step 1 |
-| `BASE_URL` | The public URL guests will open, such as `https://party.example.com`. It must match the redirect URI you registered (minus `/callback`). Defaults to `http://127.0.0.1:3000`. |
+| `DATABASE_URL` | Postgres connection string. Tables are created on startup. (`POSTGRES_URL` also works.) |
+| `BASE_URL` | The public URL guests will open, such as `https://party.example.com`. It must match the redirect URI you registered (minus `/callback`). Defaults to the Vercel production URL on Vercel, otherwise `http://127.0.0.1:3000`. |
 | `PORT` | Port to listen on (default `3000`) |
-| `DB_PATH` | SQLite file for parties and suggestions (default `data/party.db`) |
 
 Open `BASE_URL`, log in with Spotify, and start a party.
 
-## 3. Put it online
+## 3. Deploy to Vercel
 
-Guests' phones must be able to reach the app, so for a real party, deploy it to any host that runs Node.js with a persistent disk (for the SQLite file) and HTTPS. Set `BASE_URL` to the deployed URL, and add `<BASE_URL>/callback` as a redirect URI in your Spotify app settings.
+The app deploys to Vercel as-is: Vercel runs `server.js` as an Express function and serves `public/` from its CDN.
+
+1. `vercel link` (or import the GitHub repo at <https://vercel.com/new>).
+2. Add a Postgres database from the Vercel Marketplace, for example `vercel integration add neon`. It sets `DATABASE_URL` for the project.
+3. Add the Spotify credentials: `vercel env add SPOTIFY_CLIENT_ID production` and `vercel env add SPOTIFY_CLIENT_SECRET production`.
+4. `vercel deploy --prod`.
+5. In your Spotify app settings, add `https://<your-project>.vercel.app/callback` as a redirect URI.
