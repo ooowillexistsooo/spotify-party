@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suggest a song</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <p id="error" class="error hidden"></p>
+
+  <section id="content" class="hidden">
+    <p class="muted" id="host-line"></p>
+    <h1>Suggest a song</h1>
+    <p class="muted">for <strong id="playlist-name"></strong></p>
+
+    <form id="search-form" class="stack" style="margin-top:16px">
+      <input id="q" type="search" placeholder="Search songs or artists" autocomplete="off" enterkeyhint="search">
+    </form>
+    <p id="notice" class="notice hidden"></p>
+    <ul id="results" class="list"></ul>
+
+    <h2>Your suggestions</h2>
+    <ul id="mine" class="list card"></ul>
+
+    <h2>Your name <span class="muted">(optional)</span></h2>
+    <input id="guest-name" maxlength="40" placeholder="So the host knows who picked it">
+  </section>
+</main>
+<script type="module">
+  import { api, esc, art, showError } from '/app.js'
+
+  const $ = (id) => document.getElementById(id)
+  const code = location.pathname.split('/').pop()
+  const errorEl = $('error')
+  let tracks = []
+  let searchSeq = 0
+
+  $('guest-name').value = localStorage.getItem('guestName') || ''
+  $('guest-name').oninput = () => localStorage.setItem('guestName', $('guest-name').value)
+
+  async function load() {
+    try {
+      const data = await api(`/api/p/${code}`)
+      $('host-line').textContent = `${data.hostName}'s party`
+      $('playlist-name').textContent = data.playlistName
+      $('mine').innerHTML = data.mine.length
+        ? data.mine
+            .map((s) => {
+              const label = { pending: 'Waiting', approved: 'Added', rejected: 'Skipped' }[s.status]
+              return `<li class="track">${art(s.image)}<div class="info"><div class="name">${esc(s.track_name)}</div><div class="sub">${esc(s.artists)}</div></div><span class="badge ${s.status}">${label}</span></li>`
+            })
+            .join('')
+        : '<li class="muted">Songs you suggest show up here so you can see when they get added.</li>'
+      $('content').classList.remove('hidden')
+      return true
+    } catch (err) {
+      showError(errorEl, err.message)
+      $('content').classList.add('hidden')
+      return false
+    }
+  }
+
+  async function search() {
+    const q = $('q').value.trim()
+    const seq = ++searchSeq
+    if (!q) {
+      tracks = []
+      $('results').innerHTML = ''
+      return
+    }
+    try {
+      const data = await api(`/api/p/${code}/search?q=${encodeURIComponent(q)}`)
+      if (seq !== searchSeq) return
+      tracks = data.tracks
+      $('results').innerHTML = tracks.length
+        ? tracks
+            .map(
+              (t, i) => `<li class="track">${art(t.image)}<div class="info"><div class="name">${esc(t.name)}${t.explicit ? ' <span class="badge">E</span>' : ''}</div><div class="sub">${esc(t.artists)} · ${esc(t.album)}</div></div><div class="actions"><button class="small" data-i="${i}">Suggest</button></div></li>`,
+            )
+            .join('')
+        : '<li class="muted" style="padding:10px 0">No songs found.</li>'
+    } catch (err) {
+      showError(errorEl, err.message)
+    }
+  }
+
+  let timer
+  $('q').oninput = () => {
+    clearTimeout(timer)
+    timer = setTimeout(search, 400)
+  }
+  $('search-form').onsubmit = (e) => {
+    e.preventDefault()
+    clearTimeout(timer)
+    $('q').blur()
+    search()
+  }
+
+  $('results').onclick = async (e) => {
+    const btn = e.target.closest('button[data-i]')
+    if (!btn) return
+    const t = tracks[btn.dataset.i]
+    btn.disabled = true
+    showError(errorEl, '')
+    try {
+      await api(`/api/p/${code}/suggestions`, {
+        method: 'POST',
+        body: { uri: t.uri, name: t.name, artists: t.artists, image: t.image, guestName: $('guest-name').value },
+      })
+      btn.textContent = 'Sent ✓'
+      $('notice').textContent = `Sent "${t.name}" to the host for approval.`
+      $('notice').classList.remove('hidden')
+      load()
+    } catch (err) {
+      btn.disabled = false
+      showError(errorEl, err.message)
+    }
+  }
+
+  if (await load()) setInterval(load, 8000)
+</script>
+</body>
+</html>

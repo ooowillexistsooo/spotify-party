@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Party · Spotify Party</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <p><a href="/">← All parties</a></p>
+  <p id="error" class="error hidden"></p>
+
+  <section id="content" class="hidden">
+    <h1 id="playlist-name"></h1>
+    <div class="card qr-panel">
+      <div class="qr"><img id="qr" alt="QR code for guests"></div>
+      <div class="details stack">
+        <p>Guests scan this code to suggest songs. Nothing gets added until you approve it.</p>
+        <p class="link" id="guest-url"></p>
+        <div class="row wrap">
+          <button id="fullscreen">Show full screen</button>
+          <button class="secondary" id="copy">Copy link</button>
+          <a class="button secondary" id="open-spotify" target="_blank" rel="noopener">Open in Spotify</a>
+        </div>
+      </div>
+    </div>
+
+    <h2>Waiting for approval <span class="muted" id="pending-count"></span></h2>
+    <ul id="pending" class="list card"></ul>
+
+    <h2>Reviewed</h2>
+    <ul id="reviewed" class="list card"></ul>
+
+    <p style="margin-top:32px"><button class="danger" id="delete">End party and remove QR code</button></p>
+  </section>
+</main>
+
+<div id="display" class="display hidden" title="Click to close">
+  <h1>Add a song 🎶</h1>
+  <div class="qr"><img id="qr-big" alt="QR code for guests"></div>
+  <p>Scan with your phone camera to suggest songs for <strong id="display-name"></strong></p>
+</div>
+
+<script type="module">
+  import { api, esc, art, showError } from '/app.js'
+
+  const $ = (id) => document.getElementById(id)
+  const code = location.pathname.split('/').pop()
+  const errorEl = $('error')
+  let loaded = false
+
+  async function load() {
+    try {
+      const { party, suggestions } = await api(`/api/parties/${code}`)
+      if (!loaded) {
+        loaded = true
+        document.title = `${party.playlistName} · Spotify Party`
+        $('playlist-name').textContent = party.playlistName
+        $('display-name').textContent = party.playlistName
+        $('guest-url').textContent = party.guestUrl
+        $('qr').src = $('qr-big').src = `/api/parties/${code}/qr.svg`
+        $('open-spotify').href = `https://open.spotify.com/playlist/${party.playlistId}`
+        $('copy').onclick = async () => {
+          await navigator.clipboard.writeText(party.guestUrl)
+          $('copy').textContent = 'Copied!'
+          setTimeout(() => ($('copy').textContent = 'Copy link'), 1500)
+        }
+        $('content').classList.remove('hidden')
+      }
+      render(suggestions)
+      showError(errorEl, '')
+    } catch (err) {
+      if (err.status === 401) return (location.href = '/')
+      showError(errorEl, err.message)
+    }
+  }
+
+  function row(s, actions) {
+    const who = s.guest_name ? ` · from ${esc(s.guest_name)}` : ''
+    return `<li class="track">
+      ${art(s.image)}
+      <div class="info">
+        <div class="name">${esc(s.track_name)}</div>
+        <div class="sub">${esc(s.artists)}${who}</div>
+      </div>
+      ${actions}
+    </li>`
+  }
+
+  function render(suggestions) {
+    const pending = suggestions.filter((s) => s.status === 'pending')
+    const reviewed = suggestions.filter((s) => s.status !== 'pending').reverse()
+    $('pending-count').textContent = pending.length ? `(${pending.length})` : ''
+    $('pending').innerHTML = pending.length
+      ? pending
+          .map((s) =>
+            row(
+              s,
+              `<div class="actions">
+                <button class="small" data-id="${s.id}" data-decision="approve">Add</button>
+                <button class="small secondary" data-id="${s.id}" data-decision="reject">Skip</button>
+              </div>`,
+            ),
+          )
+          .join('')
+      : '<li class="muted">No suggestions yet. They show up here automatically.</li>'
+    $('reviewed').innerHTML = reviewed.length
+      ? reviewed.map((s) => row(s, `<span class="badge ${s.status}">${s.status === 'approved' ? 'Added' : 'Skipped'}</span>`)).join('')
+      : '<li class="muted">Nothing reviewed yet.</li>'
+  }
+
+  $('pending').onclick = async (e) => {
+    const btn = e.target.closest('button[data-id]')
+    if (!btn) return
+    btn.parentElement.querySelectorAll('button').forEach((b) => (b.disabled = true))
+    try {
+      await api(`/api/parties/${code}/suggestions/${btn.dataset.id}/${btn.dataset.decision}`, { method: 'POST' })
+    } catch (err) {
+      showError(errorEl, err.message)
+    }
+    load()
+  }
+
+  $('fullscreen').onclick = () => {
+    $('display').classList.remove('hidden')
+    document.documentElement.requestFullscreen?.().catch(() => {})
+  }
+  $('display').onclick = () => {
+    $('display').classList.add('hidden')
+    if (document.fullscreenElement) document.exitFullscreen()
+  }
+
+  $('delete').onclick = async () => {
+    if (!confirm('End this party? The QR code will stop working. Songs already added stay on the playlist.')) return
+    await api(`/api/parties/${code}`, { method: 'DELETE' })
+    location.href = '/'
+  }
+
+  await load()
+  setInterval(load, 4000)
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spotify Party</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <h1>Spotify Party</h1>
+  <p class="muted">Guests scan a QR code to suggest songs. You approve the ones that go on the playlist.</p>
+  <p id="error" class="error hidden"></p>
+
+  <section id="signed-out" class="hidden">
+    <p style="margin-top:24px"><a class="button" href="/login">Log in with Spotify</a></p>
+  </section>
+
+  <section id="signed-in" class="hidden">
+    <div class="row" style="margin-top:8px">
+      <span class="muted">Logged in as <strong id="host-name"></strong></span>
+      <span class="spacer"></span>
+      <button class="secondary small" id="logout">Log out</button>
+    </div>
+
+    <h2>Start a party</h2>
+    <form id="new-party" class="card stack">
+      <div class="tabs" role="tablist">
+        <button type="button" class="small active" data-mode="existing">Use a playlist I have</button>
+        <button type="button" class="small" data-mode="new">Make a new playlist</button>
+      </div>
+      <div data-panel="existing">
+        <label for="playlist">Playlist</label>
+        <select id="playlist"><option value="">Loading your playlists…</option></select>
+      </div>
+      <div data-panel="new" class="hidden">
+        <label for="new-name">New playlist name</label>
+        <input id="new-name" maxlength="100" placeholder="Saturday night">
+      </div>
+      <button type="submit" id="create">Create party and QR code</button>
+    </form>
+
+    <h2>Your parties</h2>
+    <ul id="parties" class="list card"></ul>
+  </section>
+</main>
+<script type="module">
+  import { api, esc, showError } from '/app.js'
+
+  const $ = (id) => document.getElementById(id)
+  const errorEl = $('error')
+  const urlError = new URLSearchParams(location.search).get('error')
+  if (urlError) {
+    showError(errorEl, urlError)
+    history.replaceState(null, '', '/')
+  }
+
+  const { host } = await api('/api/me')
+  $(host ? 'signed-in' : 'signed-out').classList.remove('hidden')
+
+  if (host) {
+    $('host-name').textContent = host.name
+    $('logout').onclick = async () => {
+      await api('/logout', { method: 'POST' })
+      location.reload()
+    }
+
+    let mode = 'existing'
+    for (const tab of document.querySelectorAll('[data-mode]')) {
+      tab.onclick = () => {
+        mode = tab.dataset.mode
+        document.querySelectorAll('[data-mode]').forEach((t) => t.classList.toggle('active', t === tab))
+        document.querySelectorAll('[data-panel]').forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== mode))
+      }
+    }
+
+    api('/api/playlists')
+      .then(({ playlists }) => {
+        $('playlist').innerHTML = playlists.length
+          ? '<option value="">Choose a playlist</option>' +
+            playlists.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}${p.total != null ? ` (${p.total})` : ''}</option>`).join('')
+          : '<option value="">No playlists you can edit yet. Make a new one instead.</option>'
+      })
+      .catch((err) => showError(errorEl, err.message))
+
+    $('new-party').onsubmit = async (e) => {
+      e.preventDefault()
+      showError(errorEl, '')
+      const body = mode === 'new' ? { newPlaylistName: $('new-name').value } : { playlistId: $('playlist').value }
+      $('create').disabled = true
+      try {
+        const { code } = await api('/api/parties', { method: 'POST', body })
+        location.href = `/host/${code}`
+      } catch (err) {
+        showError(errorEl, err.message)
+        $('create').disabled = false
+      }
+    }
+
+    const { parties } = await api('/api/parties')
+    $('parties').innerHTML = parties.length
+      ? parties
+          .map(
+            (p) => `<li class="track">
+              <div class="info">
+                <div class="name">${esc(p.playlist_name)}</div>
+                <div class="sub">Started ${new Date(p.created_at).toLocaleString()}</div>
+              </div>
+              ${p.pending ? `<span class="badge">${p.pending} waiting</span>` : ''}
+              <a class="button secondary small" href="/host/${esc(p.code)}">Open</a>
+            </li>`,
+          )
+          .join('')
+      : '<li class="muted">No parties yet.</li>'
+  }
+</script>
+</body>
+</html>

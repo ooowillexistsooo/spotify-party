@@ -1,0 +1,95 @@
+:root {
+  --bg: #121212;
+  --card: #1e1e1e;
+  --card-2: #2a2a2a;
+  --text: #f5f5f5;
+  --muted: #a7a7a7;
+  --green: #1ed760;
+  --red: #f15e6c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 28px; margin: 8px 0 4px; }
+h2 { font-size: 18px; margin: 28px 0 12px; }
+p { margin: 8px 0; }
+a { color: var(--green); }
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+
+.card { background: var(--card); border-radius: 12px; padding: 16px; }
+.row { display: flex; gap: 12px; align-items: center; }
+.row.wrap { flex-wrap: wrap; }
+.spacer { flex: 1; }
+.stack > * + * { margin-top: 12px; }
+
+button, .button {
+  display: inline-block;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  background: var(--green);
+  color: #000;
+}
+button.secondary, .button.secondary { background: var(--card-2); color: var(--text); }
+button.danger { background: transparent; color: var(--red); padding: 10px 12px; }
+button.small { padding: 6px 14px; font-size: 14px; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+input, select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  background: var(--card-2);
+  color: var(--text);
+  font: inherit;
+}
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+
+.error { background: #4a1d23; color: #ffd5da; padding: 12px 14px; border-radius: 8px; }
+.notice { background: #173d27; color: #c9f7d9; padding: 12px 14px; border-radius: 8px; }
+
+.list { list-style: none; margin: 0; padding: 0; }
+.list.card { padding: 6px 16px; }
+.list > li.muted { padding: 10px 0; }
+.track { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid #2c2c2c; }
+.track:last-child { border-bottom: 0; }
+.track img, .track .art { width: 48px; height: 48px; border-radius: 4px; flex: none; background: var(--card-2); object-fit: cover; }
+.track .info { flex: 1; min-width: 0; }
+.track .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track .sub { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track .actions { display: flex; gap: 8px; flex: none; }
+
+.badge { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--card-2); color: var(--muted); flex: none; }
+.badge.approved { background: #173d27; color: var(--green); }
+.badge.rejected { background: #4a1d23; color: var(--red); }
+
+.qr { background: #fff; border-radius: 12px; padding: 12px; width: 100%; max-width: 280px; aspect-ratio: 1; }
+.qr img { width: 100%; height: 100%; display: block; }
+.qr-panel { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.qr-panel .details { flex: 1; min-width: 220px; }
+.link { word-break: break-all; font-family: ui-monospace, monospace; font-size: 14px; color: var(--muted); }
+
+/* Full-screen QR for putting on a TV or tablet */
+.display { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 24px; text-align: center; z-index: 10; cursor: pointer; }
+.display .qr { max-width: min(70vh, 80vw); }
+.display h1 { font-size: clamp(28px, 5vw, 56px); margin: 0; }
+.display p { font-size: clamp(16px, 2.5vw, 24px); color: var(--muted); margin: 0; }
+
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tabs button { background: var(--card-2); color: var(--text); }
+.tabs button.active { background: var(--text); color: #000; }
